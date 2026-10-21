@@ -1,0 +1,605 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>小黑跑酷：倍數與因數</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* Layout: full-bleed 3D rooftop at sunset; glassy HUD strip on top, big touch arrows at the bottom, modal cards for setup and results. One committed dusk look. */
+:root{
+  --dusk:#2a1838; --plum:#43244f; --glass:rgba(32,18,44,.72); --glass-line:rgba(255,214,170,.28);
+  --cream:#fff4e4; --muted:#e9c9b4; --coin:#ffc43d; --coin-deep:#d98a12;
+  --ok:#5fe0a0; --bad:#ff6b6b; --sky:#ff9d6c;
+  --f-num:"Fredoka","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--dusk);color:var(--cream);font-family:var(--f-body);-webkit-user-select:none;user-select:none;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%}
+/* HUD */
+.hud{position:fixed;left:0;right:0;top:0;z-index:5;padding-top:calc(env(safe-area-inset-top,0px) + 10px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.hud-row{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.chip{background:var(--glass);border:1px solid var(--glass-line);border-radius:14px;padding:6px 12px;display:flex;align-items:center;gap:8px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.chip .k{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
+.chip .v{font-family:var(--f-num);font-weight:700;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.chip.target .v{color:var(--coin)}
+.chip.bad .v{color:var(--bad)}
+.coinIcon{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff1b0,var(--coin) 45%,var(--coin-deep));box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
+.spacer{flex:1}
+.hud .btn-sm{pointer-events:auto}
+.rule{background:var(--glass);border:1px solid var(--glass-line);border-radius:14px;padding:8px 12px;font-size:.92rem;line-height:1.5;max-width:560px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.rule b{color:var(--coin)}
+.rule-wrap{display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:none}
+.rule-wrap .btn-sm{pointer-events:auto}
+.prog{height:8px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden;max-width:560px}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--coin-deep),var(--coin));transition:width .3s}
+/* feedback */
+#fb{position:fixed;left:50%;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);width:max-content;max-width:min(560px,calc(100% - 32px));z-index:6;pointer-events:none;text-align:center;font-family:var(--f-num);font-weight:700;opacity:0;transition:opacity .15s}
+#fb.show{opacity:1}
+@media not ((hover:hover) and (pointer:fine)){#fb{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}}
+#fb{background:rgba(32,18,44,.55);border-radius:16px;padding:6px 12px}
+#fb .big{font-size:clamp(1.15rem,4.6vw,1.7rem);text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#fb .small{font-family:var(--f-body);font-size:clamp(.82rem,3.2vw,1rem);line-height:1.45;background:var(--glass);border:1px solid var(--glass-line);border-radius:12px;padding:6px 12px;margin-top:6px;display:inline-block}
+#fb.ok .big{color:var(--ok)} #fb.bad .big{color:var(--bad)}
+#flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .25s}
+/* touch */
+.touch{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:space-between;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));pointer-events:none}
+.touch button{pointer-events:auto;width:84px;height:84px;border-radius:50%;border:2px solid var(--glass-line);background:var(--glass);font-size:2rem;font-family:var(--f-num);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.touch button:active{background:rgba(255,196,61,.35)}
+@media (hover:hover) and (pointer:fine){.touch{display:none}}
+/* modal */
+.modal{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:rgba(26,12,34,.55);padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:auto}
+.card{width:min(560px,100%);background:linear-gradient(180deg,#4a2652,#2c1736);border:1px solid var(--glass-line);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.card h1{margin:0;font-family:var(--f-num);font-weight:700;font-size:clamp(1.7rem,6vw,2.3rem);line-height:1.15;text-wrap:balance}
+.card h1 span{color:var(--coin)}
+.card p{margin:0;line-height:1.65;color:var(--muted)}
+.lbl{font-size:.78rem;letter-spacing:.12em;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg button{border:2px solid var(--glass-line);background:rgba(255,255,255,.04);border-radius:14px;padding:10px 6px;display:flex;flex-direction:column;gap:2px;align-items:center}
+.seg button b{font-size:1.05rem}
+.seg button small{font-size:.75rem;color:var(--muted);line-height:1.35;text-align:center}
+.seg button[aria-pressed="true"]{border-color:var(--coin);background:rgba(255,196,61,.14)}
+.goal{display:flex;gap:6px;flex-wrap:wrap}
+.goal button{border:2px solid var(--glass-line);background:transparent;border-radius:99px;padding:4px 14px;font-family:var(--f-num);font-weight:700}
+.goal button[aria-pressed="true"]{border-color:var(--coin);color:var(--coin)}
+.tipbox{background:rgba(255,196,61,.08);border:1px dashed rgba(255,196,61,.45);border-radius:14px;padding:12px 14px;line-height:1.7}
+.tipbox b{color:var(--coin)}
+.tipbox .ex{font-family:var(--f-num);letter-spacing:.04em}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:16px;padding:14px 22px;font-weight:900;font-size:1.1rem;background:linear-gradient(180deg,#ffd768,var(--coin));color:#4a2300;box-shadow:0 4px 0 var(--coin-deep)}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--coin-deep)}
+.btn.ghost{background:transparent;color:var(--cream);border:2px solid var(--glass-line);box-shadow:none}
+.btn-sm{border:1px solid var(--glass-line);background:var(--glass);border-radius:12px;padding:6px 12px;font-size:.9rem}
+.toggle{display:flex;align-items:center;gap:8px;font-size:.92rem}
+.toggle input{width:20px;height:20px;accent-color:var(--coin)}
+.stars{font-size:2.6rem;letter-spacing:.15em;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:rgba(255,255,255,.05);border-radius:12px;padding:8px;text-align:center}
+.stat .v{font-family:var(--f-num);font-weight:700;font-size:1.4rem;font-variant-numeric:tabular-nums}
+.stat .k{font-size:.72rem;color:var(--muted)}
+.review{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}
+.review div{background:rgba(255,107,107,.1);border-left:3px solid var(--bad);border-radius:8px;padding:6px 10px;font-size:.92rem;line-height:1.5}
+.review div b{font-family:var(--f-num)}
+.nseg{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.nseg button{border:2px solid var(--glass-line);background:rgba(255,255,255,.04);border-radius:12px;padding:8px 0;font-family:var(--f-num);font-weight:700;font-size:1.1rem}
+.nseg button[aria-pressed="true"]{border-color:var(--coin);color:var(--coin);background:rgba(255,196,61,.14)}
+.custom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.custom input{width:90px;background:rgba(255,255,255,.06);border:2px solid var(--glass-line);border-radius:10px;padding:6px 10px;font-family:var(--f-num);font-size:1.1rem;color:var(--cream)}
+.flist{display:flex;gap:5px;flex-wrap:wrap;max-width:560px}
+.flist span{min-width:34px;height:34px;padding:0 6px;border-radius:10px;display:grid;place-items:center;font-family:var(--f-num);font-weight:700;background:var(--glass);border:1px dashed var(--glass-line);color:var(--muted)}
+.flist span.got{background:rgba(255,196,61,.22);border:1px solid var(--coin);color:var(--coin)}
+.pairs{font-family:var(--f-num);line-height:1.8}
+.skills{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.skill{border:2px solid var(--glass-line);background:rgba(255,255,255,.05);border-radius:16px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.skill:hover,.skill:focus-visible{border-color:var(--coin);background:rgba(255,196,61,.12)}
+.skill .ic{font-size:2rem;line-height:1}
+.skill b{font-size:1.02rem}
+.skill small{color:var(--muted);font-size:.8rem;line-height:1.45}
+.skill .lv{font-family:var(--f-num);font-size:.75rem;color:var(--coin)}
+.owned{display:flex;gap:6px;flex-wrap:wrap}
+.owned span{background:rgba(255,196,61,.12);border:1px solid rgba(255,196,61,.4);border-radius:99px;padding:2px 10px;font-size:.85rem}
+.hearts{letter-spacing:.05em;font-size:1.25rem}
+@media (max-width:520px){.skills{grid-template-columns:1fr}.skill{flex-direction:row;text-align:left;align-items:center}.skill .ic{font-size:1.7rem}}
+@media (max-width:520px){.hud{gap:5px}.hud-row{gap:5px}.chip{padding:3px 8px;border-radius:10px;gap:5px}.chip .v{font-size:1rem}.chip .k{font-size:.66rem}.coinIcon{width:15px;height:15px}.flist span{min-width:26px;height:26px;font-size:.85rem;border-radius:8px}.rule{font-size:.82rem;padding:6px 10px}.btn-sm{padding:4px 10px;font-size:.82rem}.prog{height:6px}}
+@media (max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}.card{padding:18px}}
+@media (prefers-reduced-motion:reduce){#fb,#flash,.prog i{transition:none}}
+</style>
+
+<div id="stage" aria-label="3D 跑酷畫面"></div>
+<div id="flash"></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="hud-row">
+    <div class="chip target"><span class="k">目標</span><span class="v" id="hTarget">4 的倍數</span></div>
+    <div class="chip"><span class="k">分數</span><span class="v" id="hScore">0</span></div>
+    <div class="chip"><span class="k" id="hLvK">Lv 1</span><span class="coinIcon"></span><span class="v" id="hCoins">0</span></div>
+    <div class="chip" id="hLifeChip"><span class="v hearts" id="hLife">❤❤❤</span></div>
+    <div class="chip"><span class="k">連對</span><span class="v" id="hCombo">0</span></div>
+    <div class="chip" id="hSpeedChip"><span class="k">速度</span><span class="v" id="hSpeed">×1.0</span></div>
+    
+    <div class="chip"><span class="k" id="hLevel">初級</span><span class="v" id="hTime">00:00</span></div>
+    <div class="spacer"></div>
+    <button class="btn-sm" id="pauseBtn" type="button">暫停</button>
+  </div>
+  <div class="prog" title="升級進度"><i id="hProg"></i></div>
+  <div class="flist" id="hFlist" hidden></div>
+  <div class="rule-wrap" id="hRuleWrap"><button class="btn-sm" id="hRuleBtn" type="button" aria-expanded="true">💡 判斷方法</button><div class="rule" id="hRule"></div></div>
+</div>
+
+<div id="fb"><div class="big" id="fbBig"></div><div class="small" id="fbSmall" hidden></div></div>
+
+<div class="touch" id="touch" hidden>
+  <button type="button" id="tLeft" aria-label="往左">◀</button>
+  <button type="button" id="tRight" aria-label="往右">▶</button>
+</div>
+
+<!-- setup -->
+<div class="modal" id="setup">
+  <div class="card">
+    <div class="lbl">小黑來跑步囉！</div>
+    <h1 id="sTitle">小黑跑酷：<span>4 的倍數</span></h1>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">選擇模式</div>
+      <div class="seg" id="modeSeg" style="grid-template-columns:1fr 1fr">
+        <button type="button" data-mode="mult" aria-pressed="true"><b>倍數模式</b><small>無盡收集「N 的倍數」</small></button>
+        <button type="button" data-mode="factor" aria-pressed="false"><b>因數模式</b><small>一個接一個找齊因數</small></button>
+      </div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px" id="nLabel">選擇倍數</div>
+      <div class="nseg" id="nSeg"></div>
+      <div class="custom" id="customWrap" hidden><span class="lbl">自訂數字</span><input id="nCustom" type="number" min="6" max="100" inputmode="numeric" placeholder="6–100"><button class="btn-sm" id="nCustomGo" type="button">使用</button><span class="lbl" id="nCustomMsg"></span></div>
+    </div>
+    <p id="sIntro"></p>
+    <div class="tipbox" id="sTip"></div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">選擇難度</div>
+      <div class="seg" id="levelSeg">
+        <button type="button" data-lv="easy" aria-pressed="true"><b>初級</b><small id="easyDesc">慢速・一次 1 枚<br>數字 1–48</small></button>
+        <button type="button" data-lv="medium" aria-pressed="false"><b>中級</b><small>標準・一次 2 枚<br>一對一錯</small></button>
+        <button type="button" data-lv="hard" aria-pressed="false"><b>高級</b><small>快速・一次 3 枚<br>只有一枚是對的</small></button>
+      </div>
+    </div>
+    <div id="goalWrap">
+      <div class="lbl" style="margin-bottom:6px">生命值（無盡模式，吃錯扣一顆心）</div>
+      <div class="goal" id="goalSeg">
+        <button type="button" data-g="3" aria-pressed="false">❤ 3</button>
+        <button type="button" data-g="5" aria-pressed="true">❤ 5</button>
+        <button type="button" data-g="0" aria-pressed="false">無限</button>
+      </div>
+    </div>
+    <p id="goalNote" hidden></p>
+    <div class="row">
+      <label class="toggle"><input type="checkbox" id="optRule" checked> 遊戲中顯示判斷方法</label>
+      <label class="toggle"><input type="checkbox" id="optBoost" checked> 連對會加速</label>
+      <label class="toggle"><input type="checkbox" id="optSlow" checked> 連錯 3 次自動放慢</label>
+      <label class="toggle"><input type="checkbox" id="optSound" checked> 音效</label>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <span class="lbl" id="best"></span>
+      <button class="btn" id="startBtn" type="button">開始跑！</button>
+    </div>
+    <p style="font-size:.85rem">操作：電腦按 ← → 或 A D；手機左右滑動或點畫面下方的箭頭。按 P 暫停。</p>
+  </div>
+</div>
+
+<!-- pause -->
+<div class="modal" id="pause" hidden>
+  <div class="card">
+    <h1>休息一下</h1>
+    <div class="tipbox" id="pTip"></div>
+    <div><div class="lbl" style="margin-bottom:6px">已獲得的技能</div><div class="owned" id="pSkills"></div></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="quitBtn" type="button">回到設定</button><button class="btn ghost" id="endBtn" type="button">結束看成績</button><button class="btn" id="resumeBtn" type="button">繼續跑</button></div>
+  </div>
+</div>
+
+<!-- level up -->
+<div class="modal" id="lvup" hidden>
+  <div class="card">
+    <div class="lbl" id="luSub">吃到 5 枚金幣</div>
+    <h1>升級！<span id="luLv">Lv 2</span>　選一個技能</h1>
+    <div class="skills" id="luCards"></div>
+  </div>
+</div>
+
+<!-- result -->
+<div class="modal" id="result" hidden>
+  <div class="card">
+    <div class="lbl" id="rLevel">初級</div>
+    <h1 id="rTitle">本局結束</h1>
+    <div class="stars" id="rStars" style="font-family:var(--f-num);font-weight:700;color:var(--coin)">0</div>
+    <p id="rMsg" style="text-align:center"></p>
+    <div class="stats">
+      <div class="stat"><div class="v" id="rCoins">10</div><div class="k">吃對</div></div>
+      <div class="stat"><div class="v" id="rLv">1</div><div class="k">等級</div></div>
+      <div class="stat"><div class="v" id="rCombo">0</div><div class="k">最高連對</div></div>
+      <div class="stat"><div class="v" id="rMiss">0</div><div class="k">吃錯</div></div>
+      <div class="stat"><div class="v" id="rSkip">0</div><div class="k" id="rSkipK">漏掉的倍數</div></div>
+      <div class="stat"><div class="v" id="rTime">00:00</div><div class="k">用時</div></div>
+    </div>
+    <div id="rSkillWrap"><div class="lbl" style="margin-bottom:6px">本局技能</div><div class="owned" id="rSkills"></div></div>
+    <div id="rPairsWrap" hidden><div class="lbl" style="margin-bottom:6px">因數成對</div><div class="tipbox pairs" id="rPairs"></div></div>
+    <div id="rReviewWrap"><div class="lbl" style="margin-bottom:6px">錯題回顧</div><div class="review" id="rReview"></div></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="backBtn" type="button">調整難度</button><button class="btn" id="againBtn" type="button">再玩一次</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const $=s=>document.getElementById(s);
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const MULT_NS=[2,3,4,5,6,7,8,9,10,11,12,15,25];
+const FACT_NS=[12,16,18,20,24,28,30,36,40,42,48,60,72,100];
+const MULT_RULE={
+ 2:{r:"個位數是 <b>0、2、4、6、8</b>（雙數）就是 2 的倍數。",trap:"個位是單數就不是。"},
+ 3:{r:"把<b>各位數字加起來</b>，和是 3 的倍數，原數就是 3 的倍數。例：51 → 5+1=6 ✔",trap:"數字和不是 3、6、9、12…就不是。"},
+ 4:{r:"看<b>末兩位數</b>能不能被 4 整除；或<b>除以 2，再除以 2</b>，兩次都整除就是。",trap:"雙數不一定是 4 的倍數，例如 26、34、50。"},
+ 5:{r:"個位數是 <b>0 或 5</b> 就是 5 的倍數。",trap:"個位不是 0 或 5 就不是。"},
+ 6:{r:"同時是 <b>2 的倍數</b>（雙數）<b>和 3 的倍數</b>（數字和是 3 的倍數）。",trap:"只符合其中一個不算，例如 14（雙數但數字和 5）、21（數字和 3 但單數）。"},
+ 7:{r:"沒有簡單口訣，用<b>乘法表</b>記：7、14、21、28、35、42、49、56、63、70…，或直接<b>除以 7 看有沒有餘數</b>。",trap:"小心 27、57、77 以外的「7 開頭／7 結尾」陷阱：17、27、47、57 都不是。"},
+ 8:{r:"<b>除以 2 三次</b>都整除就是 8 的倍數。例：48 → 24 → 12 → 6 ✔",trap:"4 的倍數不一定是 8 的倍數，例如 12、20、36。"},
+ 9:{r:"把<b>各位數字加起來</b>，和是 9 的倍數，原數就是 9 的倍數。",trap:"數字和是 3 或 6 只是 3 的倍數，例如 33、42。"},
+ 10:{r:"個位數是 <b>0</b> 就是 10 的倍數。",trap:"個位是 5 只是 5 的倍數。"},
+ 11:{r:"兩位數中，<b>十位和個位一樣</b>（11、22…99）就是 11 的倍數；三位數看「百位−十位+個位」是 0 或 11 的倍數。",trap:"110、121、132…也是 11 的倍數。"},
+ 12:{r:"同時是 <b>3 的倍數</b>和 <b>4 的倍數</b>。",trap:"只是 3 或 4 的倍數不算，例如 18、20。"},
+ 15:{r:"同時是 <b>3 的倍數</b>（數字和）和 <b>5 的倍數</b>（個位 0 或 5）。",trap:"例如 25、35 是 5 的倍數但不是 3 的倍數。"},
+ 25:{r:"末兩位是 <b>00、25、50、75</b> 就是 25 的倍數。",trap:"個位是 5 不一定，例如 35、65。"}
+};
+const factorsOf=n=>{const a=[];for(let i=1;i<=n;i++)if(n%i===0)a.push(i);return a};
+const isOk=v=>opt.mode==="mult"?v%opt.n===0:opt.n%v===0;
+const tgtName=()=>opt.mode==="mult"?`${opt.n} 的倍數`:`${opt.n} 的因數`;
+function rangeMax(lv){if(opt.mode==="factor")return opt.n;return lv==="easy"?Math.min(Math.max(100,opt.n*10),Math.max(opt.n*12,30)):Math.max(100,opt.n*10)}
+const LEVELS={
+  easy:{label:"初級",speed:8,gap:36,n:1,correctRate:.65},
+  medium:{label:"中級",speed:12.5,gap:28,n:2},
+  hard:{label:"高級",speed:17.5,gap:22,n:3}
+};
+const LANES=[-2.4,0,2.4];
+let opt={boost:true,lv:"easy",goal:5,rule:true,slow:true,sound:true,mode:"mult",n:4};
+let G=null;
+
+/* ---------- best record (per browser) ---------- */
+const BEST_KEY="xiaohei-run-mf";const bestId=()=>`${opt.mode}-${opt.n}-${opt.lv}`;
+function loadBest(){try{return JSON.parse(localStorage.getItem(BEST_KEY)||"{}")}catch(e){return {}}}
+function saveBest(b){try{localStorage.setItem(BEST_KEY,JSON.stringify(b))}catch(e){}}
+function showBest(){const b=loadBest()[`${opt.mode}-${opt.n}-${opt.lv}-${opt.goal}`];$("best").textContent=b&&b.score!=null?`最佳紀錄：${b.score} 分（Lv ${b.lv}）`:""}
+const fmt=t=>{t=Math.floor(t);return String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0")};
+
+/* ---------- audio ---------- */
+let AC=null;
+function tone(f,d,type,vol,slide){if(!opt.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type||"sine";o.frequency.setValueAtTime(f,AC.currentTime);if(slide)o.frequency.exponentialRampToValueAtTime(slide,AC.currentTime+d);g.gain.setValueAtTime(vol||.15,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+const sGood=()=>{tone(880,.12,"triangle",.18);setTimeout(()=>tone(1320,.16,"triangle",.16),70)};
+const sBad=()=>tone(220,.3,"sawtooth",.12,110);
+const sWin=()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.25,"triangle",.18),i*130));
+const sStep=()=>tone(300,.05,"square",.03);
+
+/* ---------- three.js scene ---------- */
+const stage=$("stage");
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(58,1,.1,400);
+camera.position.set(0,4.4,8.2);camera.lookAt(0,1.2,-8);
+
+// sky gradient
+(function(){const c=document.createElement("canvas");c.width=4;c.height=256;const x=c.getContext("2d");const g=x.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,"#3a1e55");g.addColorStop(.38,"#b8476a");g.addColorStop(.62,"#ff8a5c");g.addColorStop(.78,"#ffc27a");g.addColorStop(1,"#ffd9a0");
+  x.fillStyle=g;x.fillRect(0,0,4,256);const t=new THREE.CanvasTexture(c);scene.background=t})();
+scene.fog=new THREE.Fog(0xe0866e,35,120);
+scene.add(new THREE.HemisphereLight(0xffc89a,0x3a2050,.75));
+const sun=new THREE.DirectionalLight(0xffb27a,1.25);sun.position.set(-14,22,-10);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:14,bottom:-14,near:1,far:70});scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffe2cc,.35));
+// sun disc
+const sunDisc=new THREE.Mesh(new THREE.CircleGeometry(9,48),new THREE.MeshBasicMaterial({color:0xffe1a0,fog:false}));sunDisc.position.set(-18,10,-180);scene.add(sunDisc);
+
+// city silhouettes
+const city=new THREE.Group();scene.add(city);
+(function(){const mats=[0x5a2c58,0x6b3560,0x4a2450].map(c=>new THREE.MeshLambertMaterial({color:c}));const win=new THREE.MeshBasicMaterial({color:0xffd27a});
+  for(let i=0;i<70;i++){const w=4+Math.random()*7,h=6+Math.random()*26,side=i%2?1:-1;const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,w),pick(mats));
+    b.position.set(side*(16+Math.random()*40),h/2-8,-30-Math.random()*130);city.add(b);
+    for(let k=0;k<3;k++){if(Math.random()<.6){const ww=new THREE.Mesh(new THREE.PlaneGeometry(.8,1),win);ww.position.set(b.position.x+(Math.random()-.5)*w*.6,b.position.y+(Math.random()-.2)*h*.5,b.position.z+w/2+.01);city.add(ww)}}}})();
+
+// rooftop track segments (recycled)
+const SEG=20,SEGS=10;const segs=[];
+const roofMat=new THREE.MeshLambertMaterial({color:0x8a4d4a});
+const roofMat2=new THREE.MeshLambertMaterial({color:0x7a4142});
+const ledgeMat=new THREE.MeshLambertMaterial({color:0xd9a27a});
+const laneMat=new THREE.MeshBasicMaterial({color:0xffe0b0,transparent:true,opacity:.35});
+const propMats={tank:new THREE.MeshLambertMaterial({color:0x6e88a0}),chim:new THREE.MeshLambertMaterial({color:0xa65a45}),vent:new THREE.MeshLambertMaterial({color:0x9a9aa8}),plant:new THREE.MeshLambertMaterial({color:0x4f9a6a})};
+function makeSeg(i){const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(9,1,SEG-.15),i%2?roofMat:roofMat2);base.position.y=-.5;base.receiveShadow=true;g.add(base);
+  for(const s of[-1,1]){const l=new THREE.Mesh(new THREE.BoxGeometry(.4,.5,SEG-.15),ledgeMat);l.position.set(s*4.3,.25,0);l.receiveShadow=true;g.add(l)}
+  for(const x of[-1.2,1.2]){for(let k=0;k<4;k++){const d=new THREE.Mesh(new THREE.PlaneGeometry(.08,2.2),laneMat);d.rotation.x=-Math.PI/2;d.position.set(x,.01,-SEG/2+2.5+k*5);g.add(d)}}
+  // side props
+  for(const s of[-1,1]){if(Math.random()<.75){const t=pick(["tank","chim","vent","plant"]);let m;
+    if(t==="tank"){m=new THREE.Group();const c=new THREE.Mesh(new THREE.CylinderGeometry(1,1,1.8,14),propMats.tank);c.position.y=2;m.add(c);for(const lx of[-.6,.6])for(const lz of[-.6,.6]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.12,1.1,.12),propMats.vent);leg.position.set(lx,.55,lz);m.add(leg)}}
+    else if(t==="chim"){m=new THREE.Mesh(new THREE.BoxGeometry(1,2.2,1),propMats.chim);m.position.y=1.1}
+    else if(t==="vent"){m=new THREE.Mesh(new THREE.BoxGeometry(1.6,.9,1.2),propMats.vent);m.position.y=.45}
+    else{m=new THREE.Group();const pot=new THREE.Mesh(new THREE.CylinderGeometry(.4,.32,.6,10),propMats.chim);pot.position.y=.3;const leaf=new THREE.Mesh(new THREE.IcosahedronGeometry(.6,0),propMats.plant);leaf.position.y=.95;m.add(pot,leaf)}
+    m.position.x+=s*(5.6+Math.random()*1.2);m.position.z=(Math.random()-.5)*SEG*.7;m.traverse(o=>{if(o.isMesh){o.castShadow=true}});g.add(m)}}
+  // neighbour roofs lower down
+  for(const s of[-1,1]){const h=2+Math.random()*3;const n=new THREE.Mesh(new THREE.BoxGeometry(6,h,SEG*.9),pick([roofMat,roofMat2]));n.position.set(s*10.5,-h/2-1.5-Math.random()*2,0);g.add(n)}
+  return g}
+for(let i=0;i<SEGS;i++){const s=makeSeg(i);s.position.z=-i*SEG+SEG;scene.add(s);segs.push(s)}
+
+// 小黑
+const dog=new THREE.Group();scene.add(dog);
+const black=new THREE.MeshLambertMaterial({color:0x26222c}),dark=new THREE.MeshLambertMaterial({color:0x2c2833}),
+  white=new THREE.MeshBasicMaterial({color:0xffffff}),pupil=new THREE.MeshBasicMaterial({color:0x111111}),red=new THREE.MeshLambertMaterial({color:0xe2463f}),
+  pink=new THREE.MeshLambertMaterial({color:0xff8fa0}),gold=new THREE.MeshLambertMaterial({color:0xffc43d,emissive:0x553300});
+function bx(w,h,d,m,x,y,z,p){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;(p||dog).add(o);return o}
+const body=bx(.9,.75,1.5,black,0,.95,0);
+const head=new THREE.Group();head.position.set(0,1.55,-.75);dog.add(head);
+bx(.8,.7,.75,black,0,0,0,head);bx(.5,.35,.4,dark,0,-.12,-.5,head);bx(.18,.14,.1,pupil,0,0,-.72,head);
+bx(.14,.16,.04,white,-.2,.12,-.38,head);bx(.14,.16,.04,white,.2,.12,-.38,head);bx(.07,.08,.03,pupil,-.2,.1,-.41,head);bx(.07,.08,.03,pupil,.2,.1,-.41,head);
+const earL=bx(.22,.4,.12,black,-.32,.45,.05,head),earR=bx(.22,.4,.12,black,.32,.45,.05,head);earL.rotation.z=.25;earR.rotation.z=-.25;
+const tongue=bx(.14,.05,.16,pink,0,-.32,-.62,head);
+bx(.92,.12,.12,red,0,1.32,-.55);const tag=bx(.14,.14,.04,gold,0,1.18,-.63);
+const tail=new THREE.Group();tail.position.set(0,1.25,.75);dog.add(tail);bx(.14,.14,.55,black,0,.1,.25,tail);tail.rotation.x=-.7;
+const legs=[];for(const [x,z] of [[-.3,-.5],[.3,-.5],[-.3,.5],[.3,.5]]){const p=new THREE.Group();p.position.set(x,.75,z);dog.add(p);bx(.22,.75,.22,black,0,-.38,0,p);bx(.24,.12,.3,dark,0,-.72,-.04,p);legs.push(p)}
+dog.position.set(0,0,0);
+// dog shadow blob for readability
+const blob=new THREE.Mesh(new THREE.CircleGeometry(.7,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.22}));blob.rotation.x=-Math.PI/2;blob.position.y=.02;scene.add(blob);
+
+// coins
+const coinGeo=new THREE.CylinderGeometry(.85,.85,.18,40);
+const coinSide=new THREE.MeshLambertMaterial({color:0xd98a12,emissive:0x442200});
+const texCache={};
+function numTex(n){if(texCache[n])return texCache[n];const c=document.createElement("canvas");c.width=c.height=256;const x=c.getContext("2d");
+  const g=x.createRadialGradient(100,90,20,128,128,128);g.addColorStop(0,"#fff3b8");g.addColorStop(.55,"#ffc43d");g.addColorStop(1,"#d98a12");
+  x.fillStyle=g;x.beginPath();x.arc(128,128,126,0,Math.PI*2);x.fill();x.lineWidth=10;x.strokeStyle="#b86a08";x.beginPath();x.arc(128,128,108,0,Math.PI*2);x.stroke();
+  x.fillStyle="#5a2a00";x.font=`700 ${n>=100?96:124}px Fredoka, "Noto Sans TC", sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(String(n),128,138);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;t.center.set(.5,.5);t.rotation=Math.PI/2;texCache[n]=t;return t}
+function labelTex(n){const c=document.createElement("canvas");c.width=256;c.height=128;const x=c.getContext("2d");
+  x.fillStyle="rgba(42,24,56,.82)";const r=40;x.beginPath();x.moveTo(r,8);x.arcTo(248,8,248,120,r);x.arcTo(248,120,8,120,r);x.arcTo(8,120,8,8,r);x.arcTo(8,8,248,8,r);x.fill();
+  x.fillStyle="#fff4e4";x.font=`700 88px Fredoka, "Noto Sans TC", sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(String(n),128,70);return new THREE.CanvasTexture(c)}
+const coins=[];
+function makeCoin(n,lane,z){const face=new THREE.MeshLambertMaterial({map:numTex(n),emissive:0x2a1400});
+  const m=new THREE.Mesh(coinGeo,[coinSide,face,face]);m.rotation.x=Math.PI/2;m.castShadow=true;
+  const grp=new THREE.Group();grp.add(m);
+  const lab=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex(n),transparent:true,depthTest:false}));lab.scale.set(1.5,.75,1);lab.position.y=1.45;grp.add(lab);
+  grp.position.set(LANES[lane],1.25,z);grp.userData={n,lane,ok:isOk(n),done:false,t:Math.random()*6};scene.add(grp);coins.push(grp);return grp}
+function clearCoins(){for(const c of coins){scene.remove(c);c.traverse(o=>{if(o.material&&o.material.map&&o.isSprite)o.material.map.dispose()})}coins.length=0}
+
+// particles (sparkle + confetti) — lightweight
+const parts=[];const pGeo=new THREE.BoxGeometry(.14,.14,.14);
+function burst(pos,color,count,spread,up){for(let i=0;i<count;i++){const m=new THREE.Mesh(pGeo,new THREE.MeshBasicMaterial({color:Array.isArray(color)?pick(color):color}));m.position.copy(pos);
+  m.userData={v:new THREE.Vector3((Math.random()-.5)*spread,Math.random()*up+1,(Math.random()-.5)*spread),life:1};scene.add(m);parts.push(m)}}
+
+/* ---------- number generation ---------- */
+const recent=[];
+function correctNum(max){
+  if(opt.mode==="factor"){const left=G?G.fs.filter(f=>!G.got.has(f)):factorsOf(opt.n);const pool=left.filter(f=>!recent.includes(f));const v=pick(pool.length?pool:left.length?left:factorsOf(opt.n));recent.push(v);if(recent.length>3)recent.shift();return v}
+  let n,t=0;do{n=opt.n*(1+rnd(Math.floor(max/opt.n)));t++}while(recent.includes(n)&&t<20);recent.push(n);if(recent.length>6)recent.shift();return n}
+function trapPool(max){const N=opt.n,out=[];
+  if(opt.mode==="factor"){const fs=factorsOf(N);for(let v=2;v<=max;v++){if(N%v===0)continue;if(fs.some(f=>f>1&&v%f===0)||fs.some(f=>Math.abs(f-v)===1))out.push(v)}return out}
+  const ds=factorsOf(N).filter(d=>d>1&&d<N);
+  for(let v=1;v<=max;v++){if(v%N===0)continue;if(ds.some(d=>v%d===0))out.push(v)}
+  if(N===7||N===11)for(let v=1;v<=max;v++)if(v%N!==0&&(String(v).includes(String(N))||(N===11&&v%10===Math.floor(v/10)%10+1)))out.push(v);
+  return out}
+function distractor(max,near,used){
+  const bad=v=>v>=1&&v<=max&&!isOk(v)&&!used.has(v);
+  if(near!=null){const offs=shuffle(opt.mode==="factor"?[1,-1,2,-2,3]:[-2,2,-1,1,3,-3,opt.n,-opt.n].map(x=>x===opt.n||x===-opt.n?x+(Math.random()<.5?1:-1):x));for(const o of offs){const v=near+o;if(bad(v))return v}}
+  const tp=trapPool(max).filter(bad);
+  if(tp.length&&Math.random()<.6)return pick(tp);
+  for(let t=0;t<80;t++){const v=1+rnd(max);if(bad(v))return v}
+  for(let v=1;v<=max;v++)if(bad(v))return v;
+  return null}
+function spawnWave(z){const L=LEVELS[opt.lv];const max=rangeMax(opt.lv);const used=new Set();
+  if(L.n===1){const ok=Math.random()<L.correctRate;let n=ok?correctNum(max):distractor(max,null,used);if(n==null)n=correctNum(max);makeCoin(n,rnd(3),z);return}
+  const lanes=shuffle([0,1,2]).slice(0,L.n);const c=correctNum(max);used.add(c);makeCoin(c,lanes[0],z);
+  for(let k=1;k<L.n;k++){const d=distractor(max,opt.lv==="hard"?c:null,used);if(d==null)break;used.add(d);makeCoin(d,lanes[k],z)}}
+
+/* ---------- skills ---------- */
+const SKILLS={
+ shield:{ic:"🛡",n:"護盾",max:3,d:l=>`獲得 1 層護盾：吃錯時抵擋一次，不扣心、不斷連對。（可疊 ${3} 層）`},
+ heart:{ic:"❤",n:"補心",max:3,d:l=>`回復 1 顆心，生命上限 +1。`,need:()=>opt.goal>0},
+ eye:{ic:"👁",n:"透視眼",max:3,d:l=>`正確的金幣靠近時會亮起綠色光圈。等級越高，越早亮起。`},
+ magnet:{ic:"🧲",n:"磁鐵",max:2,d:l=>l<1?`隔壁跑道的正確金幣，快到時會被吸過來。`:`吸力範圍變大。`},
+ double:{ic:"✨",n:"分數加倍",max:3,d:l=>`每枚正確金幣的得分 +50%。`},
+ calm:{ic:"🐢",n:"沉著",max:2,d:l=>`整體速度 −10%，看得更清楚。`},
+ combo:{ic:"🔥",n:"連擊大師",max:3,d:l=>`連對帶來的分數加成更高。`},
+ guard:{ic:"🔗",n:"連擊守護",max:1,d:l=>`吃錯時保留一半的連對數，不會整個歸零。`}
+};
+const xpNeed=lv=>4+lv*2;
+function skillLv(k){return G&&G.sk[k]||0}
+function offerSkills(){const pool=Object.keys(SKILLS).filter(k=>skillLv(k)<SKILLS[k].max&&(!SKILLS[k].need||SKILLS[k].need()));
+  const pick3=shuffle(pool).slice(0,3);if(!pick3.length){G.paused=false;return}
+  $("luLv").textContent=`Lv ${G.lv}`;$("luSub").textContent=`累計吃對 ${G.coins} 枚`;
+  const box=$("luCards");box.innerHTML="";
+  for(const k of pick3){const S=SKILLS[k],l=skillLv(k);const b=document.createElement("button");b.type="button";b.className="skill";
+    b.innerHTML=`<span class="ic">${S.ic}</span><span><b>${S.n}</b>${l?` <span class="lv">Lv ${l} → ${l+1}</span>`:""}<br><small>${S.d(l)}</small></span>`;
+    b.addEventListener("click",()=>takeSkill(k));box.append(b)}
+  G.paused=true;$("lvup").hidden=false;setTimeout(()=>box.querySelector("button")?.focus(),50)}
+function takeSkill(k){G.sk[k]=(G.sk[k]||0)+1;
+  if(k==="shield")G.shield=Math.min(3,G.shield+1);
+  if(k==="heart"){G.maxLife++;G.life=Math.min(G.maxLife,G.life+1)}
+  $("lvup").hidden=true;G.paused=false;sWin();feedback(true,`${SKILLS[k].ic} ${SKILLS[k].n}`,SKILLS[k].d(G.sk[k]-1));updateHUD()}
+function skillChips(el){el.innerHTML="";const ks=Object.keys(G.sk);if(!ks.length){el.textContent="（尚無）";return}
+  for(const k of ks){const sp=document.createElement("span");sp.textContent=`${SKILLS[k].ic} ${SKILLS[k].n}${G.sk[k]>1?" Lv"+G.sk[k]:""}`;el.append(sp)}}
+
+/* ---------- game state ---------- */
+function newGame(){clearCoins();recent.length=0;
+  G={boost:1,boostT:1,fs:opt.mode==="factor"?factorsOf(opt.n):null,got:new Set(),lane:1,x:0,coins:0,miss:0,combo:0,maxCombo:0,errStreak:0,skip:0,time:0,speedMul:1,run:true,paused:false,nextZ:-40,wrong:[],jump:0,shake:0,won:false,dist:0,
+     score:0,lv:1,xp:0,sk:{},shield:0,life:opt.goal||Infinity,maxLife:opt.goal||Infinity,rounds:0,startN:opt.n};
+  for(let z=-30;z>-95;z-=LEVELS[opt.lv].gap){spawnWave(z);G.nextZ=z-LEVELS[opt.lv].gap}
+  $("hLevel").textContent=LEVELS[opt.lv].label;refreshTarget();$("hRuleWrap").hidden=!opt.rule;setRule(true);clearTimeout(ruleT);ruleT=setTimeout(()=>setRule(false),7000);
+  $("hLifeChip").hidden=!opt.goal;updateHUD()}
+let ruleT=0;
+function setRule(open){$("hRule").hidden=!open;$("hRuleBtn").setAttribute("aria-expanded",String(open));$("hRuleBtn").textContent=open?"💡 收起判斷方法":"💡 判斷方法"}
+function refreshTarget(){$("hTarget").textContent=tgtName();$("hRule").innerHTML=ruleHTML(true);$("hFlist").hidden=opt.mode!=="factor";$("pTip").innerHTML=`<b>提示：</b>`+ruleHTML(true).replace("<b>判斷方法：</b>","")}
+function updateHUD(){if(!G)return;$("hScore").textContent=G.score;$("hCoins").textContent=G.coins;$("hLvK").textContent=`Lv ${G.lv}`;$("hCombo").textContent=G.combo;
+  $("hSpeed").textContent="×"+(G.speedMul*G.boostT*(1-.1*skillLv("calm"))).toFixed(2).replace(/0$/,"");$("hSpeedChip").hidden=!opt.boost&&!opt.slow&&!skillLv("calm");
+  if(opt.goal){$("hLife").innerHTML=`<span style="color:var(--bad)">${"♥".repeat(Math.max(0,G.life))}</span><span style="color:var(--muted)">${"♡".repeat(Math.max(0,G.maxLife-G.life))}</span>${G.shield?" "+"🛡".repeat(G.shield):""}`}
+  $("hTime").textContent=fmt(G.time);$("hProg").style.width=Math.min(100,G.xp/xpNeed(G.lv)*100)+"%";
+  if(opt.mode==="factor"){const fl=$("hFlist");fl.innerHTML="";for(const f of G.fs){const sp=document.createElement("span");const g=G.got.has(f);sp.className=g?"got":"";sp.textContent=g?f:"?";fl.append(sp)}}}
+let fbTimer=0;
+function feedback(ok,big,small){const f=$("fb");f.className=ok?"ok show":"bad show";$("fbBig").textContent=big;const s=$("fbSmall");s.hidden=!small;s.textContent=small||"";clearTimeout(fbTimer);fbTimer=setTimeout(()=>f.className=ok?"ok":"bad",ok?900:2200)}
+function flash(color){const f=$("flash");f.style.background=color;f.style.opacity=".35";setTimeout(()=>f.style.opacity="0",120)}
+function digitSum(n){return String(n).split("").reduce((a,b)=>a+ +b,0)}
+function why(n){const N=opt.n;const ds=String(n).split("").join("+");
+  switch(N){
+   case 2:return `個位是 ${n%10}，是單數`;
+   case 3:return `數字和 ${ds}=${digitSum(n)}，不是 3 的倍數`;
+   case 4:if(n%2)return `${n} 是單數，除以 2 就除不盡`;{const h=n/2;return `${n} → ${h} → ${h%2?(h/2).toFixed(1):h/2}，第二次除不盡`}
+   case 5:return `個位是 ${n%10}，不是 0 或 5`;
+   case 6:return n%2?`${n} 是單數，不是 2 的倍數`:`數字和 ${digitSum(n)} 不是 3 的倍數`;
+   case 8:{let x=n,k=0;const seq=[x];while(k<3&&x%2===0){x/=2;seq.push(x);k++}return k<3?`${seq.join(" → ")} → ${(x/2).toFixed(1)}，第 ${k+1} 次除不盡`:""}
+   case 9:return `數字和 ${ds}=${digitSum(n)}，不是 9 的倍數`;
+   case 10:return `個位是 ${n%10}，不是 0`;
+   case 12:return n%3?`不是 3 的倍數（數字和 ${digitSum(n)}）`:`是 3 的倍數，但不是 4 的倍數`;
+   case 15:return n%3?`不是 3 的倍數（數字和 ${digitSum(n)}）`:`是 3 的倍數，但個位不是 0 或 5`;
+   case 25:return `末兩位是 ${String(n%100).padStart(2,"0")}，不是 00、25、50、75`;
+   default:return ""}}
+function explainWrong(n){const N=opt.n;
+  if(opt.mode==="factor"){const q=Math.floor(N/n),r=N%n;return {big:`${n} ✖`,small:`${N} ÷ ${n} = ${q} … 餘 ${r}，除不盡，所以 ${n} 不是 ${N} 的因數`}}
+  const q=Math.floor(n/N),r=n%N;const w=why(n);return {big:`${n} ✖`,small:`${n} ÷ ${N} = ${q} … 餘 ${r}${w?`　（${w}）`:""}`}}
+function ruleHTML(short){const N=opt.n;
+  if(opt.mode==="factor"){const fs=factorsOf(N);return short?`<b>判斷方法：</b>${N} 除以這個數，<b>能整除</b>就是 ${N} 的因數。因數會<b>成對出現</b>：1 × ${N}、${fs[1]} × ${N/fs[1]}……共 ${fs.length} 個。`
+    :`<b>怎麼找因數？</b><br>用 ${N} 去除以 1、2、3……，<b>除得盡</b>的就是因數，而且一次會找到<b>一對</b>：${fs.filter(f=>f*f<=N).map(f=>`${f} × ${N/f}`).join("、")}。<br>${N} 一共有 <b>${fs.length}</b> 個因數。大於 ${N} 的數一定不是它的因數。`}
+  const R=MULT_RULE[N]||{r:`除以 ${N}，沒有餘數就是 ${N} 的倍數。`,trap:""};
+  if(short)return `<b>判斷方法：</b>${R.r}`;
+  const ex=[];for(let k=1;k<=10;k++)ex.push(N*k);
+  return `<b>怎麼判斷？</b><br>${R.r}<br>${R.trap?`<b>小心：</b>${R.trap}<br>`:""}<span class="ex">${ex.join("、")}……</span>`}
+function collect(c){const u=c.userData;u.done=true;
+  if(u.ok&&opt.mode==="factor"&&G.got.has(u.n)){feedback(true,`${u.n} 已經找到了`,"去找還沒找到的因數");scene.remove(c);return}
+  if(u.ok){G.coins++;G.combo++;G.maxCombo=Math.max(G.maxCombo,G.combo);G.errStreak=0;
+    if(opt.boost){const nb=1+Math.min(G.combo,8)*.06;if(nb>G.boostT&&(G.combo===3||G.combo===5||G.combo===8))setTimeout(()=>feedback(true,"加速！",`連對 ${G.combo} 次，速度 ×${nb.toFixed(2).replace(/0$/,"")}`),850);G.boostT=nb}
+    const pts=Math.round(10*(1+Math.min(G.combo,20)*(.1+.05*skillLv("combo")))*(1+.5*skillLv("double")));G.score+=pts;
+    G.jump=1;sGood();flash("rgba(95,224,160,.6)");
+    if(opt.mode==="factor"){G.got.add(u.n);const p=opt.n/u.n;feedback(true,`+${pts}　${opt.n} = ${u.n} × ${p}`,p!==u.n&&!G.got.has(p)?`它的另一半是 ${p}，也要找到喔`:(G.combo>=3?`連對 ${G.combo} 次！`:""))}
+    else feedback(true,`+${pts}　${u.n} = ${opt.n} × ${u.n/opt.n}`,G.combo>=3?`連對 ${G.combo} 次！`:"");
+    burst(c.position,[0xffc43d,0xfff1b0,0xffffff],14,4,4);scene.remove(c);
+    if(opt.mode==="factor"&&G.got.size>=G.fs.length)setTimeout(roundClear,700);
+    G.xp++;if(G.xp>=xpNeed(G.lv)){G.xp=0;G.lv++;updateHUD();setTimeout(()=>{if(G.run)offerSkills()},opt.mode==="factor"&&G.got.size>=G.fs.length?2600:700)}}
+  else{
+    if(G.shield>0){G.shield--;sBad();flash("rgba(143,200,255,.6)");const e=explainWrong(u.n);feedback(false,`🛡 ${u.n} 擋下了`,e.small);G.wrong.push({n:u.n,txt:e.small,N:opt.n});burst(c.position,0x8fc8ff,10,3,3);scene.remove(c);updateHUD();return}
+    G.miss++;const keep=skillLv("guard")?Math.floor(G.combo/2):0;G.combo=keep;const wasBoost=G.boostT>1;G.boostT=keep&&opt.boost?1+Math.min(keep,8)*.06:1;G.errStreak++;G.shake=.35;sBad();flash("rgba(255,107,107,.7)");
+    const e=explainWrong(u.n);if(wasBoost&&!keep)e.small+="　｜速度回到原本";if(opt.goal){G.life--;e.small+=`　｜❤ −1`}feedback(false,e.big,e.small);
+    G.wrong.push({n:u.n,txt:e.small.split("　｜")[0],N:opt.n});burst(c.position,0xff6b6b,10,3,3);scene.remove(c);
+    if(opt.goal&&G.life<=0){updateHUD();setTimeout(()=>endGame("gameover"),900);return}
+    if(opt.slow&&G.errStreak>=3&&G.speedMul>.6){G.speedMul=Math.max(.6,G.speedMul-.15);G.errStreak=0;setTimeout(()=>feedback(false,"放慢一點",slowTip()),1200)}}
+  updateHUD()}
+function roundClear(){if(!G||!G.run)return;G.rounds++;const bonus=50+10*G.fs.length;G.score+=bonus;sWin();
+  for(let i=0;i<3;i++)setTimeout(()=>burst(new THREE.Vector3((Math.random()-.5)*6,3,-3),[0xffc43d,0x5fe0a0,0xff8fa0,0x8fc8ff],22,8,7),i*160);
+  const old=opt.n;const i=FACT_NS.indexOf(old);opt.n=FACT_NS[(i<0?0:i+1)%FACT_NS.length];
+  feedback(true,`找齊 ${old} 的因數！+${bonus}`,`下一個：${opt.n} 的因數`);
+  G.fs=factorsOf(opt.n);G.got=new Set();recent.length=0;
+  for(const c of coins)if(!c.userData.done&&c.position.z<-8){c.userData.done=true;scene.remove(c)}
+  refreshTarget();updateHUD()}
+function slowTip(){if(opt.mode==="factor")return `用 ${opt.n} 除以它，除得盡才是因數`;const N=opt.n;
+  if([2,4,6,8,10,12].includes(N))return `先看個位：單數一定不是 ${N} 的倍數`;if(N===5||N===15||N===25)return "先看個位：不是 0 或 5 就一定不是";if(N===3||N===9)return "先把各位數字加起來";return `想想 ${N} 的乘法表`}
+function endGame(why){if(!G)return;G.run=false;G.paused=false;$("pause").hidden=true;$("lvup").hidden=true;
+  if(why!=="gameover")sWin();
+  const best=loadBest();const id=`${opt.mode}-${G.startN}-${opt.lv}-${opt.goal}`;const b=best[id];const isBest=!b||G.score>b.score;if(isBest&&G.score>0){best[id]={score:G.score,lv:G.lv};saveBest(best)}
+  setTimeout(()=>{$("rTitle").textContent=why==="gameover"?"心用完了！":"本局結束";
+    $("rLevel").textContent=`${opt.mode==="factor"?"因數模式":tgtName()}・${LEVELS[opt.lv].label}・${opt.goal?"❤ "+opt.goal:"無限生命"}`;
+    $("rStars").textContent=`${G.score} 分`;
+    $("rMsg").textContent=(isBest&&G.score>0?"新紀錄！":b?`最佳紀錄 ${b.score} 分`:"")+(opt.mode==="factor"&&G.rounds?`　找齊了 ${G.rounds} 個數的全部因數`:"");
+    $("rSkipK").textContent=opt.mode==="factor"?"錯過的因數":"漏掉的倍數";
+    $("rCoins").textContent=G.coins;$("rLv").textContent=G.lv;$("rCombo").textContent=G.maxCombo;$("rMiss").textContent=G.miss;$("rSkip").textContent=G.skip;$("rTime").textContent=fmt(G.time);
+    skillChips($("rSkills"));
+    $("rPairsWrap").hidden=opt.mode!=="factor";if(opt.mode==="factor"){const fs=factorsOf(opt.n);$("rPairs").textContent=`${opt.n} 的因數：${fs.join("、")}　｜　成對：${fs.filter(f=>f*f<=opt.n).map(f=>`${f} × ${opt.n/f}`).join("、")}`}
+    const rv=$("rReview");rv.innerHTML="";$("rReviewWrap").hidden=!G.wrong.length;
+    for(const w of G.wrong.slice(-20)){const d=document.createElement("div");const bb=document.createElement("b");bb.textContent=w.n;d.append(bb,` 不是 ${opt.mode==="mult"?w.N+" 的倍數":w.N+" 的因數"}：`,w.txt);rv.append(d)}
+    $("hud").hidden=true;$("touch").hidden=true;$("result").hidden=false;opt.n=G.startN},why==="gameover"?600:300)}
+
+/* ---------- input ---------- */
+function move(d){if(!G||!G.run||G.paused)return;const n=Math.max(0,Math.min(2,G.lane+d));if(n!==G.lane){G.lane=n;sStep()}}
+addEventListener("keydown",e=>{if(["ArrowLeft","a","A"].includes(e.key)){move(-1);e.preventDefault()}else if(["ArrowRight","d","D"].includes(e.key)){move(1);e.preventDefault()}else if(e.key==="p"||e.key==="P"||e.key==="Escape")togglePause()});
+let tx=null,ty=null;
+stage.addEventListener("touchstart",e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY},{passive:true});
+stage.addEventListener("touchend",e=>{if(tx==null)return;const t=e.changedTouches[0];const dx=t.clientX-tx,dy=t.clientY-ty;if(Math.abs(dx)>30&&Math.abs(dx)>Math.abs(dy))move(dx<0?-1:1);tx=null},{passive:true});
+$("tLeft").addEventListener("click",()=>move(-1));$("tRight").addEventListener("click",()=>move(1));
+function togglePause(){if(!G||!G.run||!$("lvup").hidden)return;G.paused=!G.paused;$("pause").hidden=!G.paused;if(G.paused)skillChips($("pSkills"))}
+$("pauseBtn").addEventListener("click",togglePause);
+$("hRuleBtn").addEventListener("click",()=>{clearTimeout(ruleT);setRule($("hRule").hidden)});$("resumeBtn").addEventListener("click",togglePause);
+$("quitBtn").addEventListener("click",()=>{G.run=false;$("pause").hidden=true;opt.n=G.startN;toSetup()});
+
+/* ---------- setup UI ---------- */
+function pressGroup(id,attr,val){document.querySelectorAll(`#${id} button`).forEach(b=>b.setAttribute("aria-pressed",String(b.dataset[attr]===String(val))))}
+function renderSetup(){const fac=opt.mode==="factor";
+  $("sTitle").innerHTML=`小黑跑酷：<span>${tgtName()}</span>`;
+  $("nLabel").textContent=fac?"選擇要找因數的數":"選擇倍數";
+  const ns=fac?FACT_NS:MULT_NS;const list=ns.includes(opt.n)?ns:[...ns,opt.n];
+  $("nSeg").innerHTML=list.map(n=>`<button type="button" data-n="${n}" aria-pressed="${n===opt.n}">${n}</button>`).join("");
+  $("customWrap").hidden=!fac;
+  $("sIntro").innerHTML=fac?`夕陽下的屋頂上，小黑要找齊 <b style="color:var(--coin)">${opt.n} 的所有因數</b>（共 ${factorsOf(opt.n).length} 個）。不是因數的金幣要閃開。`:`夕陽下的屋頂上，小黑要收集寫著 <b style="color:var(--coin)">${opt.n} 的倍數</b> 的金幣。不是 ${opt.n} 的倍數的金幣要閃開，吃到會被記一次錯。`;
+  $("sTip").innerHTML=ruleHTML(false);$("pTip").innerHTML=`<b>提示：</b>`+ruleHTML(true).replace("<b>判斷方法：</b>","");
+  const gn=$("goalNote");gn.hidden=!fac;gn.textContent=fac?`無盡模式：找齊 ${opt.n} 的全部 ${factorsOf(opt.n).length} 個因數後，自動換下一個數繼續跑。`:"";
+  $("easyDesc").innerHTML=`慢速・一次 1 枚<br>數字 1–${rangeMax("easy")}`;
+  showBest()}
+$("modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;opt.mode=b.dataset.mode;pressGroup("modeSeg","mode",opt.mode);opt.n=opt.mode==="factor"?24:4;renderSetup()});
+$("nSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;opt.n=+b.dataset.n;renderSetup()});
+$("nCustomGo").addEventListener("click",()=>{const v=Math.floor(+$("nCustom").value);const m=$("nCustomMsg");
+  if(!(v>=6&&v<=100)){m.textContent="請輸入 6 到 100 的整數";return}
+  if(factorsOf(v).length<=2){m.textContent=`${v} 是質數，只有 1 和 ${v} 兩個因數，換一個數試試`;return}
+  m.textContent="";opt.n=v;renderSetup()});
+$("levelSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;opt.lv=b.dataset.lv;pressGroup("levelSeg","lv",opt.lv);showBest()});
+$("goalSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;opt.goal=+b.dataset.g;pressGroup("goalSeg","g",opt.goal);showBest()});
+$("endBtn").addEventListener("click",()=>endGame("quit"));
+function start(){opt.rule=$("optRule").checked;opt.slow=$("optSlow").checked;opt.boost=$("optBoost").checked;opt.sound=$("optSound").checked;
+  if(opt.sound){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume&&AC.resume()}catch(e){}}
+  newGame();$("setup").hidden=true;$("result").hidden=true;$("hud").hidden=false;$("touch").hidden=false}
+function toSetup(){$("hud").hidden=true;$("touch").hidden=true;$("result").hidden=true;$("setup").hidden=false;showBest()}
+$("startBtn").addEventListener("click",start);$("againBtn").addEventListener("click",start);$("backBtn").addEventListener("click",toSetup);
+renderSetup();
+
+/* ---------- loop ---------- */
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;
+  camera.fov=w/h<.75?70:58;camera.position.z=w/h<.75?9.5:8.2;camera.updateProjectionMatrix()}
+addEventListener("resize",resize);resize();
+const clock=new THREE.Clock();let idleT=0;
+function frame(){requestAnimationFrame(frame);let dt=Math.min(clock.getDelta(),.05);
+  const active=G&&G.run&&!G.paused;
+  const L=LEVELS[opt.lv];if(G){G.boost+=(G.boostT-G.boost)*Math.min(1,2*dt)}
+  const speed=active?L.speed*G.speedMul*G.boost*(1-.1*skillLv("calm")):(G&&G.paused?0:3.5);
+  const dz=speed*dt;
+  // world scroll
+  for(const s of segs){s.position.z+=dz;if(s.position.z>SEG*1.5)s.position.z-=SEG*SEGS}
+  city.position.z+=dz*.04;if(city.position.z>40)city.position.z=0;
+  if(active){G.time+=dt;
+    for(const c of coins){const u=c.userData;if(u.done)continue;c.position.z+=dz;
+      const ey=skillLv("eye");if(ey&&u.ok&&!(opt.mode==="factor"&&G.got.has(u.n))){if(!u.ring&&c.position.z>-(6+ey*8)){u.ring=new THREE.Mesh(new THREE.TorusGeometry(1.05,.09,8,32),new THREE.MeshBasicMaterial({color:0x5fe0a0}));c.add(u.ring)}}
+      const mg=skillLv("magnet");if(mg&&u.ok&&!(opt.mode==="factor"&&G.got.has(u.n))&&Math.abs(u.lane-G.lane)===1&&c.position.z>-(3+mg*3)&&c.position.z<.5){c.position.x+=(LANES[G.lane]-c.position.x)*Math.min(1,8*dt)}u.t+=dt;c.children[0].rotation.z=Math.sin(u.t*2)*.25;c.position.y=1.25+Math.sin(u.t*3)*.08;const lab=c.children[1];lab.material.opacity=Math.max(0,Math.min(1,(c.position.z+70)/25));
+      const ddz=Math.abs(c.position.z-dog.position.z),ddx=Math.abs(c.position.x-dog.position.x);
+      if(ddz<1.0&&ddx<1.0)collect(c);
+      else if(c.position.z>3&&!u.passed){u.passed=true;if(u.ok&&!(opt.mode==="factor"&&G.got.has(u.n)))G.skip++}}
+    for(let i=coins.length-1;i>=0;i--){const c=coins[i];if(c.userData.done||c.position.z>14){scene.remove(c);coins.splice(i,1)}}
+    G.nextZ+=dz;while(G.nextZ>-95){spawnWave(G.nextZ);G.nextZ-=L.gap}
+    if(Math.floor(G.time*4)!==Math.floor((G.time-dt)*4))updateHUD()}
+  // dog
+  const tx2=G?LANES[G.lane]:0;dog.position.x+=(tx2-dog.position.x)*Math.min(1,12*dt);
+  idleT+=dt*(speed>0?speed*.75:2);const sw=Math.sin(idleT)*(speed>0?.7:.15);
+  legs[0].rotation.x=sw;legs[3].rotation.x=sw;legs[1].rotation.x=-sw;legs[2].rotation.x=-sw;
+  tail.rotation.y=Math.sin(idleT*1.6)*.5;earL.rotation.x=Math.sin(idleT)*.15;earR.rotation.x=-Math.sin(idleT)*.15;tongue.position.y=-.32+Math.sin(idleT*2)*.02;
+  let jy=0;if(G&&G.jump>0){G.jump=Math.max(0,G.jump-dt*2.6);jy=Math.sin((1-G.jump)*Math.PI)*.9}
+  dog.position.y=jy+Math.abs(Math.sin(idleT))*.06;dog.rotation.z=(dog.position.x-tx2)*.12;
+  body.rotation.x=Math.sin(idleT*2)*.03;
+  blob.position.x=dog.position.x;blob.scale.setScalar(1-jy*.35);
+  // camera follow & shake
+  let shx=0;if(G&&G.shake>0&&!RM){G.shake=Math.max(0,G.shake-dt);shx=(Math.random()-.5)*G.shake*.8}
+  camera.position.x+=(dog.position.x*.35-camera.position.x)*Math.min(1,4*dt)+shx;
+  // particles
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];const u=p.userData;u.v.y-=9*dt;p.position.addScaledVector(u.v,dt);p.rotation.x+=dt*6;p.rotation.y+=dt*4;u.life-=dt*.8;p.scale.setScalar(Math.max(.01,u.life));
+    if(u.life<=0){scene.remove(p);p.material.dispose();parts.splice(i,1)}}
+  renderer.render(scene,camera)}
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{for(const k in texCache)delete texCache[k]});
+frame();
+})();
+</script>
+
+</body></html>
